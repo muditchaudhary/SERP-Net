@@ -8,26 +8,58 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def process_data():
+
+    label_ids = {}
+    num_classes = 0
+
     dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/shapenet_pc'
     all_csv = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNetCore.v2/all.csv'
     df = pd.read_csv(all_csv, sep=',')
     for index, row in df.iterrows():
         path = f'{dataroot}/0{row["synsetId"]}-{row["modelId"]}.npy'
-        if not os.path.exists(path):
-            print(f'{path}')
-            df.drop(index, inplace=True)
+        # if not os.path.exists(path):
+        #     print(f'{path}')
+        #     df.drop(index, inplace=True)
 
-    train_split = df[df['split']=='train']
-    val_split = df[df['split']=='val']
+        lab = f'0{row["synsetId"]}'
+        if lab not in label_ids.keys():
+            label_ids[lab] = num_classes
+            num_classes += 1
+    print('num_classes:', num_classes)
 
-    path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/train_split.csv'
-    train_split.to_csv(path, index=False, sep=',')
+    torch.save(label_ids, 'label_ids.pth')
 
-    path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
-    val_split.to_csv(path, index=False, sep=',')
+    # train_split = df[df['split']=='train']
+    # val_split = df[df['split']=='val']
+
+    # path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/train_split.csv'
+    # train_split.to_csv(path, index=False, sep=',')
+
+    # path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
+    # val_split.to_csv(path, index=False, sep=',')
+# process_data()
+
+class PointcloudScaleAndTranslate(object):
+    def __init__(self, scale_low=2. / 3., scale_high=3. / 2., translate_range=0.2):
+        self.scale_low = scale_low
+        self.scale_high = scale_high
+        self.translate_range = translate_range
+
+    def __call__(self, pc):
+        bsize = pc.size()[0]
+        for i in range(bsize):
+            xyz1 = np.random.uniform(low=self.scale_low, high=self.scale_high, size=[3])
+            xyz2 = np.random.uniform(low=-self.translate_range, high=self.translate_range, size=[3])
+            
+            # pc[i, :, 0:3] = torch.mul(pc[i, :, 0:3], torch.from_numpy(xyz1).float().cuda()) + torch.from_numpy(xyz2).float().cuda()
+            pc[i, :, 0:3] = torch.mul(pc[i, :, 0:3], torch.from_numpy(xyz1).float()) + torch.from_numpy(xyz2).float()
+            
+        return pc
+
+
 
 class ShapeNet(Dataset):
-    def __init__(self, mode='train', normalize=True, return_full=False):
+    def __init__(self, mode='train', transform=None, normalize=True, return_full=False):
 
         self.dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/shapenet_pc'
         
@@ -38,11 +70,14 @@ class ShapeNet(Dataset):
             path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
             self.pc_data = pd.read_csv(path, sep=',')
         
+        self.label_ids = torch.load('/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
         self.return_full = return_full
         self.normalize = normalize
         self.npoints = 1024 
         self.ncenters = 20
         self.n_neighbours = 20
+        
+        self.transform = transform
 
     def normalize_pc(self, points):
 
@@ -87,13 +122,13 @@ class ShapeNet(Dataset):
         y[neigh_idx] = 1 # corrupted data points
 
         jitter = np.random.normal(0, 0.05, size=(len(points), 3)) 
-        print('jitter:', jitter.shape)     
-        print('y:', y.reshape((-1,1)).shape)     
+        # print('jitter:', jitter.shape)     
+        # print('y:', y.reshape((-1,1)).shape)     
         jitter *= y.reshape((-1,1)) # corrupt only labeled 1 points 
 
         # print('max_jitter:',np.amax(jitter))
-        print('max_jitter:',np.amax(jitter))
-        print('#corrupted:', np.sum(y))
+        # print('max_jitter:',np.amax(jitter))
+        # print('#corrupted:', np.sum(y))
 
         corrupted = points + jitter
         return corrupted, y 
@@ -107,8 +142,16 @@ class ShapeNet(Dataset):
         path = f'{self.dataroot}/0{row["synsetId"]}-{row["modelId"]}.npy'
 
         tax_id = f'0{row["synsetId"]}'
+        label = self.label_ids[tax_id]
 
         pc_full = np.load(path).astype(np.float32)
+
+        if self.transform:
+            pc_full = torch.from_numpy(pc_full).float()
+            pc_full = torch.unsqueeze(pc_full, 0)
+            pc_full = self.transform(pc_full)
+            pc_full = torch.squeeze(pc_full)
+            pc_full = pc_full.detach().cpu().numpy()
 
         pc_sampled = self.random_sample(pc_full)
         pc_corrupt, y_corrupt = self.corrupt_pc(pc_sampled)
@@ -122,9 +165,9 @@ class ShapeNet(Dataset):
 
         if self.return_full:
             pc_full = torch.from_numpy(pc_full).float()
-            return tax_id, pc_full, pc_sampled, pc_corrupt, y_corrupt
+            return label, pc_full, pc_sampled, pc_corrupt, y_corrupt
         else:
-            return tax_id, pc_sampled, pc_corrupt, y_corrupt
+            return label, pc_sampled, pc_corrupt, y_corrupt
              
 def get_ptcloud_img(ptcloud, roll, pitch):
     fig = plt.figure(figsize=(8, 8))
@@ -153,6 +196,9 @@ def vis_pc():
 
     roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
                     '03261776' : (0, 75), '03001627' : (30, -45)}
+
+    label_ids = torch.load('/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
+    roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
 
     dataset = ShapeNet('train', False, True)
     trainDataloader = DataLoader(dataset, batch_size=1, shuffle=True)
