@@ -14,7 +14,7 @@ from Point_MAE.extensions.chamfer_dist import ChamferDistanceL1, ChamferDistance
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from timm.scheduler import CosineLRScheduler
-
+from sklearn.svm import LinearSVC
 
 from data_utils import ShapeNet
 from data_utils import PointcloudScaleAndTranslate
@@ -60,17 +60,15 @@ train_transforms = transforms.Compose(
 )
 
 dataset = ShapeNet('train', train_transforms)
-trainDataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
 dataset = ShapeNet('test')
-testDataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
 if args.use_vq:
     model = VASP().to(device)
-    val_model = VASP().to(device)
 else:
     model = Point_SERP().to(device)
-    val_model = Point_SERP(encoder_only=True).to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(),
                 lr = args.learning_rate, 
@@ -101,7 +99,7 @@ def train_model(dataloader):
             loss = rec_loss 
             loss += args.classifier_coeff * classifier_loss
             loss += args.emb_coef * vq_loss 
-            loss += args.comit_coef * commit_loss
+            loss += args.commit_coef * commit_loss
 
             avg_rec_loss += rec_loss.item()
             avg_cls_loss += classifier_loss.item()
@@ -115,7 +113,9 @@ def train_model(dataloader):
             logprint(f'commit_loss: {avg_commit_loss/(idx+1) :.6f}\n')
 
         else:
-            rec_loss, classifier_loss = model(pc_corrupt.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+            losses = model(pc_corrupt.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+            rec_loss, classifier_loss = losses
+
             loss = rec_loss + args.classifier_coeff * classifier_loss
  
             avg_rec_loss += rec_loss.item()
@@ -123,12 +123,12 @@ def train_model(dataloader):
             
             logprint(f'{idx+1}/{n_batches} ')
             logprint(f'rec_loss: {avg_rec_loss/(idx+1) :.6f} ')
-            logprint(f'cls_loss: {avg_cls_loss/(idx+1) :.6f} ')
+            logprint(f'cls_loss: {avg_cls_loss/(idx+1) :.6f}\n')
             
         loss.backward()
         optimizer.step()        
 
-        break
+        # break
 
     avg_rec_loss /= n_batches
     avg_cls_loss /= n_batches
@@ -148,10 +148,7 @@ def evaluate_svm(train_features, train_labels, test_features, test_labels):
     return test_acc 
 
 def validate():
-    sd = model.state_dict()
-    val_model.load_state_dict(sd)
-
-    val_model.eval()
+    model.eval()
 
     train_features = []
     train_labels = []
@@ -160,33 +157,37 @@ def validate():
 
     for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
 
-        feats_b = val_model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+        feats_b = model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda(), eval=True)
         label_b = tax_id
+
+        feats_b = feats_b.cpu().detach()
+        # print('feats_b:', feats_b.shape, type(feats_b))
 
         train_features.append(feats_b)
         train_labels.append(label_b)
 
-        if idx == 3:
+        if idx == 10:
             break
     
     for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(testDataloader):
 
-        feats_b = val_model(pc_sampled)
+        feats_b = model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda(), eval=True)
         label_b = tax_id
+
+        feats_b = feats_b.cpu().detach()
 
         test_features.append(feats_b)
         test_labels.append(label_b)
 
-        if idx == 3:
+        if idx == 10:
             break
 
-        
     train_features = torch.cat(train_features, dim=0)
-    train_label = torch.cat(train_label, dim=0)
+    train_labels = torch.cat(train_labels, dim=0)
     test_features = torch.cat(test_features, dim=0)
-    test_label = torch.cat(test_label, dim=0)
+    test_labels = torch.cat(test_labels, dim=0)
 
-    svm_acc = evaluate_svm(train_features.data.cpu().numpy(), train_labels.data.cpu().numpy(), test_features.data.cpu().numpy(), test_labels.data.cpu().numpy())
+    svm_acc = evaluate_svm(train_features.numpy(), train_labels.numpy(), test_features.numpy(), test_labels.numpy())
 
     return svm_acc
 
@@ -195,11 +196,19 @@ max_svm_acc = 0.
 
 for epoch in range(args.epochs):
     
-    avg_rec_loss, avg_cls_loss = train_model(trainDataloader)
+    if args.use_vq:
+        avg_rec_loss, avg_cls_loss, avg_vq_loss, avg_commit_loss = train_model(trainDataloader)
+        
+        logprint(f'epoch:{epoch+1}/{args.epochs} ') 
+        logprint(f'rec_loss: {avg_rec_loss :.4f} cls:{avg_cls_loss :.4f} ')
+        logprint(f'vq_loss: {avg_vq_loss :.4f} commit:{avg_commit_loss :.4f}\n')
+    else:
+        avg_rec_loss, avg_cls_loss = train_model(trainDataloader)
+
+        logprint(f'epoch:{epoch+1}/{args.epochs} rec_loss: {avg_rec_loss :.4f} cls:{avg_cls_loss :.4f}\n')
+
     scheduler.step()
-
-    logprint(f'epoch:{epoch+1}/{args.epochs} rec_loss: {avg_rec_loss :.4f} cls:{avg_cls_loss :.4f}\n')
-
+    
     svm_acc = validate()
 
     logprint(f'epoch:{epoch+1}/{args.epochs} svm_acc:{svm_acc}\n')
