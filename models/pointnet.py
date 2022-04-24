@@ -156,7 +156,7 @@ class PointNetCls(nn.Module):
 
 
 class SerpPointNet(nn.Module):
-    def __init__(self, output_feat_dim = 32, feature_transform=False, rec_loss="mse_loss" ):
+    def __init__(self, output_feat_dim = 32, feature_transform=False, rec_loss="mse" ):
         super(SerpPointNet, self).__init__()
         self.output_feat_dim = output_feat_dim
         self.feature_transform=feature_transform
