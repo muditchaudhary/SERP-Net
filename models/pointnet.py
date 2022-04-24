@@ -1,4 +1,6 @@
 from __future__ import print_function
+import sys
+sys.path.append("./")
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -7,6 +9,9 @@ from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
 import ipdb
+from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
+from data_utils import ShapeNet
+from torch.utils.data import Dataset, DataLoader
 
 
 class STN3d(nn.Module):
@@ -151,7 +156,7 @@ class PointNetCls(nn.Module):
 
 
 class SerpPointNet(nn.Module):
-    def __init__(self, output_feat_dim = 32, feature_transform=False, global_feature = True, eval = ):
+    def __init__(self, output_feat_dim = 32, feature_transform=False, rec_loss="mse_loss" ):
         super(SerpPointNet, self).__init__()
         self.output_feat_dim = output_feat_dim
         self.feature_transform=feature_transform
@@ -166,17 +171,28 @@ class SerpPointNet(nn.Module):
         self.cls_head = torch.nn.Conv1d(self.output_feat_dim, 2, 1)
         self.reconstruction_head = torch.nn.Conv1d(self.output_feat_dim,3,1)
 
+        self.cls_loss_func = nn.CrossEntropyLoss()
+
+        if rec_loss == "cdl1":
+            self.rec_loss_func = ChamferDistanceL1().cuda()
+        elif rec_loss == 'cdl2':
+            self.rec_loss_func = ChamferDistanceL2().cuda()
+        elif rec_loss == 'mse':
+            self.rec_loss_func = torch.nn.MSELoss().cuda()
+        else:
+            raise NotImplementedError
+
     def cls_loss(self, logits, labels):
-        ipdb.set_trace()
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(logits, labels)
+        loss = self.cls_loss_func(logits, labels)
         return loss
 
-    def reconstruction_loss(self):
-        #TODO Regressing on deltas or point positions?
-        pass
+    def reconstruction_loss(self, reconstructed_pts, gt_points):
+        rec_loss = self.rec_loss_func(gt_points, reconstructed_pts)
+        return rec_loss
 
-    def forward(self, x, cls_labels):
+
+    def forward(self, x, rec_labels,cls_labels):
+        x = x.transpose(2,1)
         batchsize = x.size()[0]
         n_pts = x.size()[2]
         x, trans, trans_feat, global_feature = self.feat(x)
@@ -191,18 +207,13 @@ class SerpPointNet(nn.Module):
             cls_logits = cls_logits.reshape((-1, 2))
             cls_labels = cls_labels.reshape(-1).long()
             cls_loss = self.cls_loss(cls_logits, cls_labels)
+            rec_points = self.reconstruction_head(per_point_feature)
+            rec_points = rec_points.transpose(2,1)
+            rec_loss = self.rec_loss_func(rec_points, rec_labels)
 
-
-
-            return cls_loss, reconstruction_loss
-
+            return rec_loss, cls_loss
         else:
-            return x, trans, trans_feat, global_feature
-
-
-        # x = x.transpose(2,1).contiguous()
-        # x = F.log_softmax(x.view(-1,self.output_feat_dim), dim=-1)
-        # x = x.view(batchsize, n_pts, self.output_feat_dim)
+            return global_feature, per_point_feature
 
 
 
@@ -243,11 +254,22 @@ def feature_transform_regularizer(trans):
     return loss
 
 if __name__ == '__main__':
-    data = torch.randn((2,5,3))
-    dataT = data.transpose(2,1)
-    labels = target = torch.empty((2,5), dtype=torch.long).random_(2)
-    model = SerpPointNet()
-    y = model(dataT, labels)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = SerpPointNet(rec_loss="mse")
+    model = model.to(device)
+    # data = torch.randn((2,5,3))
+    # #dataT = data.transpose(2,1)
+    # labels = target = torch.empty((2,5), dtype=torch.long).random_(2)
+
+    #y = model(dataT, labels,0)
+
+    dataset = ShapeNet('train')
+    trainDataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
+        rec_loss, classifier_loss = model(pc_corrupt.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+        print(rec_loss)
+        print(classifier_loss)
+        break
     # sim_data = Variable(torch.rand(32,3,2500))
     # trans = STN3d()
     # out = trans(sim_data)
