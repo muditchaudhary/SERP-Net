@@ -156,8 +156,11 @@ class PointNetCls(nn.Module):
 
 
 class SerpPointNet(nn.Module):
-    def __init__(self, output_feat_dim = 32, feature_transform=False, rec_loss="mse" ):
+    def __init__(self, output_feat_dim = 32, feature_transform=False, rec_loss="mse", return_rec_points = False):
         super(SerpPointNet, self).__init__()
+
+        self.return_rec_points = return_rec_points
+
         self.output_feat_dim = output_feat_dim
         self.feature_transform=feature_transform
         self.feat = PointNetfeat(global_feat=False, feature_transform=feature_transform)
@@ -191,7 +194,7 @@ class SerpPointNet(nn.Module):
         return rec_loss
 
 
-    def forward(self, x, rec_labels,cls_labels):
+    def forward(self, x, rec_labels = None, cls_labels = None):
         x = x.transpose(2,1)
         batchsize = x.size()[0]
         n_pts = x.size()[2]
@@ -212,6 +215,11 @@ class SerpPointNet(nn.Module):
             rec_loss = self.rec_loss_func(rec_points, rec_labels)
 
             return rec_loss, cls_loss
+        elif self.return_rec_points:
+            rec_points = self.reconstruction_head(per_point_feature)
+            rec_points = rec_points.transpose(2, 1)
+
+            return rec_points
         else:
             return global_feature, per_point_feature
 
