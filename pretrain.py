@@ -9,6 +9,7 @@ from data_utils import ShapeNet
 from data_utils import PointcloudScaleAndTranslate
 import wandb
 from tqdm import tqdm
+from sklearn.svm import LinearSVC
 
 
 def logprint(log):
@@ -87,7 +88,7 @@ def train_model(model, optimizer, dataloader, args):
     avg_vq_loss /= n_batches
     avg_commit_loss /= n_batches
 
-    if args.use_vq:
+    if args.model=="vq":
         return avg_rec_loss, avg_cls_loss, avg_vq_loss, avg_commit_loss
     else:
         return avg_rec_loss, avg_cls_loss
@@ -101,9 +102,12 @@ def evaluate_svm(train_features, train_labels, test_features, test_labels):
     return test_acc
 
 
-def validate(training_model, val_model):
-    sd = training_model.state_dict()
-    val_model.load_state_dict(sd)
+def validate(training_model, args, trainDataloader, testDataloader, val_model=None):
+    if val_model == None:
+        val_model=training_model
+    else:
+        sd = training_model.state_dict()
+        val_model.load_state_dict(sd)
 
     val_model.eval()
 
@@ -112,37 +116,44 @@ def validate(training_model, val_model):
     test_features = []
     test_labels = []
 
-    for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
+    with torch.no_grad():
+        for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
+            if args.model == "pointnet":
 
-        feats_b = val_model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
-        label_b = tax_id
+                feats_b, _ = val_model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+            else:
+                feats_b = val_model(pc_sampled.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
+            label_b = tax_id
 
-        train_features.append(feats_b)
-        train_labels.append(label_b)
+            train_features.append(feats_b)
+            train_labels.append(label_b)
 
-        if idx == 3:
-            break
+            if idx == 5:
+                break
 
-    for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(testDataloader):
+        for idx, (tax_id, pc_sampled, pc_corrupt, y_corrupt) in enumerate(testDataloader):
 
-        feats_b = val_model(pc_sampled)
-        label_b = tax_id
+            if args.model == "pointnet":
+                feats_b, _ = val_model(pc_sampled.cuda())
+            else:
+                feats_b = val_model(pc_sampled.cuda())
+            label_b = tax_id
 
-        test_features.append(feats_b)
-        test_labels.append(label_b)
+            test_features.append(feats_b)
+            test_labels.append(label_b)
 
-        if idx == 3:
-            break
+            if idx == 5:
+                break
 
-    train_features = torch.cat(train_features, dim=0)
-    train_label = torch.cat(train_label, dim=0)
-    test_features = torch.cat(test_features, dim=0)
-    test_label = torch.cat(test_label, dim=0)
+        train_features = torch.cat(train_features, dim=0)
+        train_label = torch.cat(train_labels, dim=0)
+        test_features = torch.cat(test_features, dim=0)
+        test_label = torch.cat(test_labels, dim=0)
 
-    svm_acc = evaluate_svm(train_features.data.cpu().numpy(), train_labels.data.cpu().numpy(),
-                           test_features.data.cpu().numpy(), test_labels.data.cpu().numpy())
+        svm_acc = evaluate_svm(train_features.data.cpu().numpy(), train_label.data.cpu().numpy(),
+                               test_features.data.cpu().numpy(), test_label.data.cpu().numpy())
 
-    return svm_acc
+        return svm_acc
 
 
 if __name__ == "__main__":
@@ -162,6 +173,7 @@ if __name__ == "__main__":
     parser.add_argument('--emb_coef', type=float, default=0.25)
     parser.add_argument('--model', type=str, required=True) # Available options: vq, pointnet, transformers
     parser.add_argument('--use_wandb', action='store_true', default=False)
+    parser.add_argument('--rec_loss', type=str, default="cdl2")
 
     args = parser.parse_args()
 
@@ -187,10 +199,10 @@ if __name__ == "__main__":
     )
 
     dataset = ShapeNet('train', train_transforms, dataroot= args.dataroot)
-    trainDataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+    trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     dataset = ShapeNet('test', dataroot=args.dataroot)
-    testDataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+    testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     if args.model == "vq":
         from models.vq_vae import VASP as SERP_Point_vq
@@ -221,8 +233,8 @@ if __name__ == "__main__":
     elif args.model == "pointnet":
         from models.pointnet import SerpPointNet as SERP_Point_PointNet
 
-        model = SERP_Point_PointNet().to(device)
-        val_model = SERP_Point_PointNet().to(device)
+        model = SERP_Point_PointNet(rec_loss=args.rec_loss).to(device)
+        val_model = None
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
@@ -239,7 +251,7 @@ if __name__ == "__main__":
         logprint(f'epoch:{epoch+1}/{args.epochs} rec_loss: {avg_rec_loss :.4f} cls:{avg_cls_loss :.4f}\n')
 
 
-        svm_acc = validate(training_model=model, val_model=val_model)
+        svm_acc = validate(training_model=model,args = args, trainDataloader=trainDataloader, testDataloader=testDataloader,val_model=val_model)
 
         logprint(f'epoch:{epoch+1}/{args.epochs} svm_acc:{svm_acc}\n')
 
@@ -259,5 +271,7 @@ if __name__ == "__main__":
                 'max_svm_acc' : max_svm_acc
             }
 
-            path = os.path.join(args.logs_dir, 'model.pth')
+            model_name = f'{args.model}_epochs{args.epochs}_rec_loss{args.rec_loss}.pth'
+
+            path = os.path.join(args.logs_dir, model_name)
             torch.save(ckpt, path)
