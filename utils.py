@@ -128,7 +128,25 @@ def plot_points(tax_id, path, full, sampled, corrupt, reconstructed):
     plt.close()
 
 def write_reconstructed(epoch):
+  
+  roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
+                    '03261776' : (0, 75), '03001627' : (30, -45)}
 
+  label_ids = torch.load('/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
+
+  roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
+
+  dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/shapenet_pc'
+  all_csv = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNetCore.v2/all.csv'
+  df = pd.read_csv(all_csv, sep=',')
+
+  path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
+  pc_data = pd.read_csv(path, sep=',')
+
+  npoints = 1024 
+  ncenters = 10
+  n_neighbours = 10
+  
     for tax_id in label_ids.keys():
 
         condtn = tax_id[1:]
