@@ -79,13 +79,14 @@ class ShapeNet(Dataset):
         
         self.transform = transform
 
-    def normalize_pc(self, points):
-
-        center = np.mean(points, axis=0)
-        points -= center
-        max_norm = np.max(np.sqrt(np.sum(points**2, axis=1)))
-        points = points / max_norm 
-        return points 
+    def normalize_pc(self, points, center=None, max_norm=None):
+        if isinstance(center, type(None)):
+            center = np.mean(points, axis=0)
+        norm_points = points - center.reshape(1, -1)
+        if isinstance(max_norm, type(None)):
+            max_norm = np.max(np.sqrt(np.sum(points**2, axis=1)))
+        norm_points = norm_points / max_norm 
+        return norm_points, center, max_norm 
 
     def random_sample(self, points):
         sample = np.arange(len(points))
@@ -108,8 +109,8 @@ class ShapeNet(Dataset):
         dist = np.sum(dist, axis=-1)
 
         neigh_idx = np.argsort(dist, axis=-1)[:,:self.n_neighbours]
-        neigh_idx = np.reshape(neigh_idx, -1)
-        neigh_idx = np.unique(neigh_idx) 
+        # neigh_idx = np.reshape(neigh_idx, -1)
+        # neigh_idx = np.unique(neigh_idx) 
 
         return neigh_idx
 
@@ -121,14 +122,12 @@ class ShapeNet(Dataset):
         y[centers_idx] = 1
         y[neigh_idx] = 1 # corrupted data points
 
-        jitter = np.random.normal(0, 0.05, size=(len(points), 3)) 
-        # print('jitter:', jitter.shape)     
-        # print('y:', y.reshape((-1,1)).shape)     
-        jitter *= y.reshape((-1,1)) # corrupt only labeled 1 points 
+        center_jitter = np.random.normal(0, 0.03, size=(centers_idx.shape[0], 3)) 
+        jitter = np.zeros((len(points), 3))
 
-        # print('max_jitter:',np.amax(jitter))
-        # print('max_jitter:',np.amax(jitter))
-        # print('#corrupted:', np.sum(y))
+        for i, epsilon in enumerate(center_jitter):
+            nidx = neigh_idx[i]
+            jitter[nidx] = epsilon
 
         corrupted = points + jitter
         return corrupted, y 
@@ -157,8 +156,8 @@ class ShapeNet(Dataset):
         pc_corrupt, y_corrupt = self.corrupt_pc(pc_sampled)
         
         if self.normalize:    
-            pc_corrupt = self.normalize_pc(pc_corrupt)
-            pc_sampled = self.normalize_pc(pc_sampled) 
+            pc_sampled, mean, max_norm = self.normalize_pc(pc_sampled) 
+            pc_corrupt, _, _ = self.normalize_pc(pc_corrupt, mean, max_norm)
 
         pc_corrupt = torch.from_numpy(pc_corrupt).float()
         pc_sampled = torch.from_numpy(pc_sampled).float()
