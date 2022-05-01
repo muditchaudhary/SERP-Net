@@ -76,8 +76,8 @@ class ShapeNet(Dataset):
         self.return_full = return_full
         self.normalize = normalize
         self.npoints = 1024
-        self.ncenters = 10
-        self.n_neighbours = 10
+        self.ncenters = 20
+        self.n_neighbours = 20
 
         self.transform = transform
 
@@ -89,13 +89,14 @@ class ShapeNet(Dataset):
         if isinstance(max_norm, type(None)):
             max_norm = np.max(np.sqrt(np.sum(points ** 2, axis=1)))
         norm_points = norm_points / max_norm
-        return points, center, max_norm
+        return norm_points, center, max_norm
 
     def random_sample(self, points):
         sample = np.arange(len(points))
         np.random.shuffle(sample)
         points_sampled = points[sample[:self.npoints]]
         return points_sampled
+
 
     def get_centers(self, points):
         sample = np.arange(len(points))
@@ -108,12 +109,12 @@ class ShapeNet(Dataset):
         centers = np.expand_dims(centers, axis=1)
 
         dist = centers - points
-        dist = dist ** 2
+        dist = dist**2
         dist = np.sum(dist, axis=-1)
 
-        neigh_idx = np.argsort(dist, axis=-1)[:, :self.n_neighbours]
-        neigh_idx = np.reshape(neigh_idx, -1)
-        neigh_idx = np.unique(neigh_idx)
+        neigh_idx = np.argsort(dist, axis=-1)[:,:self.n_neighbours]
+        # neigh_idx = np.reshape(neigh_idx, -1)
+        # neigh_idx = np.unique(neigh_idx)
 
         return neigh_idx
 
@@ -123,16 +124,14 @@ class ShapeNet(Dataset):
 
         y = np.zeros(len(points))
         y[centers_idx] = 1
-        y[neigh_idx] = 1  # corrupted data points
+        y[neigh_idx] = 1 # corrupted data points
 
-        jitter = np.random.normal(0, 0.01, size=(len(points), 3))
-        # print('jitter:', jitter.shape)     
-        # print('y:', y.reshape((-1,1)).shape)     
-        jitter *= y.reshape((-1, 1))  # corrupt only labeled 1 points
+        center_jitter = np.random.normal(0, 0.03, size=(centers_idx.shape[0], 3))
+        jitter = np.zeros((len(points), 3))
 
-        # print('max_jitter:',np.amax(jitter))
-        # print('max_jitter:',np.amax(jitter))
-        # print('#corrupted:', np.sum(y))
+        for i, epsilon in enumerate(center_jitter):
+            nidx = neigh_idx[i]
+            jitter[nidx] = epsilon
 
         corrupted = points + jitter
         return corrupted, y
@@ -171,7 +170,7 @@ class ShapeNet(Dataset):
 
         if self.return_full:
             pc_full = torch.from_numpy(pc_full).float()
-            return label, pc_full, pc_sampled, pc_corrupt, y_corrupt, pc_sampled_unnormalized, pc_corrupt_unnormalized
+            return label, pc_full, pc_sampled, pc_corrupt, y_corrupt #pc_sampled_unnormalized, pc_corrupt_unnormalized
         else:
             return label, pc_sampled, pc_corrupt, y_corrupt
 
@@ -207,7 +206,7 @@ def vis_pc():
     label_ids = torch.load('/gypsum/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
     roll_pitch = {label_ids[key]: v for key, v in roll_pitch.items()}
 
-    dataset = ShapeNet('train', False, True)
+    dataset = ShapeNet('train', False, True, return_full=True)
     trainDataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     for idx, (tax_id, pc_full, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
