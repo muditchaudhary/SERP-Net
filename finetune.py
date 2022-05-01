@@ -75,10 +75,10 @@ if args.dataset == 'shapenet':
     num_classes = 55
 
 elif args.dataset == 'modelnet':
-    dataset = ModelNet40()
+    dataset = ModelNet40('train')
     trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    dataset = ModelNet40()
+    dataset = ModelNet40('test')
     testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     num_classes = 40
 
@@ -133,45 +133,26 @@ def run_model(dataloader, mode='train'):
 
         if mode == 'train':
             optimizer.zero_grad()   
-        
-        if args.use_vq:
-            losses = model(pc_corrupt.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
-            rec_loss, classifier_loss, vq_loss, commit_loss = losses
-
-            loss = rec_loss 
-            loss += args.classifier_coeff * classifier_loss
-            loss += args.emb_coef * vq_loss 
-            loss += args.commit_coef * commit_loss
-
-            avg_rec_loss += rec_loss.item()
-            avg_cls_loss += classifier_loss.item()
-            avg_vq_loss += vq_loss.item()
-            avg_commit_loss += commit_loss.item()
-
-            logprint(f'{idx+1}/{n_batches} ')
-            logprint(f'rec_loss: {avg_rec_loss/(idx+1) :.6f} ')
-            logprint(f'cls_loss: {avg_cls_loss/(idx+1) :.6f} ')
-            logprint(f'vq_loss: {avg_vq_loss/(idx+1) :.6f} ')
-            logprint(f'commit_loss: {avg_commit_loss/(idx+1) :.6f}\n')
-
-        else:
             logits = model(pc_sampled.cuda())
             loss = criterion(logits, tax_id.cuda().long())
- 
-            avg_cls_loss += loss.item()
-
-            pred = logits.argmax(-1).detach().cpu().numpy()
-            labels = tax_id.detach().cpu().numpy()
-            matches = (pred == labels).sum() 
-            avg_acc += matches
-            
-            logprint(f'{idx+1}/{n_batches} ')
-            logprint(f'cls_loss: {avg_cls_loss/(idx+1) :.6f} ')
-            logprint(f'accuracy: {avg_acc/(args.batch_size *(idx+1)) :.6f}\n')
-
-        if mode == 'train':    
             loss.backward()
-            optimizer.step()        
+            optimizer.step()     
+
+        else:
+            with torch.no_grad():
+                logits = model(pc_sampled.cuda())
+                loss = criterion(logits, tax_id.cuda().long())
+
+        avg_cls_loss += loss.item()
+
+        pred = logits.argmax(-1).detach().cpu().numpy()
+        labels = tax_id.detach().cpu().numpy()
+        matches = (pred == labels).sum() 
+        avg_acc += matches
+        
+        logprint(f'{idx+1}/{n_batches} ')
+        logprint(f'cls_loss: {avg_cls_loss/(idx+1) :.6f} ')
+        logprint(f'accuracy: {avg_acc/(args.batch_size *(idx+1)) :.6f}\n')
 
         # break
 
