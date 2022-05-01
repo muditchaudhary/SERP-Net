@@ -10,7 +10,8 @@ from data_utils import PointcloudScaleAndTranslate
 import wandb
 from tqdm import tqdm
 from sklearn.svm import LinearSVC
-
+from time import time
+from utils import write_reconstructed
 
 def logprint(log):
     #print(log, end='')
@@ -95,7 +96,7 @@ def train_model(model, optimizer, dataloader, args):
 
 
 def evaluate_svm(train_features, train_labels, test_features, test_labels):
-    clf = LinearSVC()
+    clf = LinearSVC(max_iter=3000)
     clf.fit(train_features, train_labels)
     pred = clf.predict(test_features)
     test_acc = np.sum(test_labels == pred) * 1. / pred.shape[0]
@@ -174,6 +175,9 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True) # Available options: vq, pointnet, transformers
     parser.add_argument('--use_wandb', action='store_true', default=False)
     parser.add_argument('--rec_loss', type=str, default="cdl2")
+    parser.add_argument('--learn_delta', action='store_true', default=False)
+    parser.add_argument('--output_feat_dim', type=int, default=128) # For Pointnet
+    parser.add_argument('--log_rec_images', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -183,14 +187,18 @@ if __name__ == "__main__":
     logs_file = os.path.join(args.logs_dir, 'logs.txt')
 
     assert args.model in ["vq", "pointnet", "transformers"], "Model not implemented"
-
+    timestamp = int(time())
+    what_is_running = f'{args.model}_epochs{args.epochs}_rec_loss{args.rec_loss}_learnDelta{args.learn_delta}_outputDim{args.output_feat_dim}_{timestamp}'
     if args.use_wandb:
-        what_is_running = input("Name this experiment for wandb log: ")
         wandb.init(name=what_is_running, project="674", entity="682_dbdc_dm")
         wandb.config.update(args)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f'device:{device}')
+
+    saved_model_path = "./saved_models/"+what_is_running
+    if not os.path.exists(saved_model_path):
+        os.mkdir(saved_model_path)
 
     train_transforms = transforms.Compose(
         [
@@ -233,9 +241,14 @@ if __name__ == "__main__":
     elif args.model == "pointnet":
         from models.pointnet import SerpPointNet as SERP_Point_PointNet
 
-        model = SERP_Point_PointNet(rec_loss=args.rec_loss).to(device)
+        model = SERP_Point_PointNet(output_feat_dim = args.output_feat_dim, rec_loss=args.rec_loss, learn_delta=args.learn_delta).to(device)
+        if args.use_wandb:
+            wandb.watch(model)
         val_model = None
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
+        optimizer = torch.optim.AdamW(model.parameters(),
+                                      lr=args.learning_rate,
+                                      weight_decay=args.weight_decay,
+                                      )
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
     else:
@@ -262,16 +275,30 @@ if __name__ == "__main__":
                 "SVM accuracy": svm_acc
             })
 
+        ckpt = {
+            'model_wts': model.state_dict()
+        }
+
+        model_name = f'checkpoint_epoch_{epoch}.pth'
+
+        path = os.path.join(saved_model_path, model_name)
+        torch.save(ckpt, path)
+
         if max_svm_acc < svm_acc:
 
             max_svm_acc = svm_acc
 
             ckpt = {
-                'best_model_wts' : model.state_dict(),
+                'model_wts' : model.state_dict(),
                 'max_svm_acc' : max_svm_acc
             }
 
-            model_name = f'{args.model}_epochs{args.epochs}_rec_loss{args.rec_loss}.pth'
+            model_name = f'best_svm_{args.model}_epoch_{epoch}.pth'
 
-            path = os.path.join(args.logs_dir, model_name)
+            path = os.path.join(saved_model_path, model_name)
             torch.save(ckpt, path)
+
+
+        if args.log_rec_images and epoch%1==0:
+            img_folder = os.path.join(saved_model_path,str(epoch))
+            write_reconstructed(model, epoch, 1, img_folder, args.use_wandb)
