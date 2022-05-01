@@ -167,7 +167,64 @@ class ShapeNet(Dataset):
             return label, pc_full, pc_sampled, pc_corrupt, y_corrupt
         else:
             return label, pc_sampled, pc_corrupt, y_corrupt
-             
+
+class ModelNet40(Dataset):
+    def __init__(self, mode='train', transform=None, normalize=True, return_full=False):
+
+        
+        if mode =='train':
+            self.dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/modelnet/modelnet40_train_8192pts_fps.dat'
+        else:
+            self.dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/modelnet/modelnet40_test_8192pts_fps.dat'
+        
+        with open(self.dataroot, 'rb') as f:
+            self.list_of_points, self.list_of_labels = pickle.load(f)
+
+        self.npoints = 1024
+        self.transform = transform
+        self.normalize = normalize
+
+    def normalize_pc(self, points, center=None, max_norm=None):
+        if isinstance(center, type(None)):
+            center = np.mean(points, axis=0)
+        norm_points = points - center.reshape(1, -1)
+        if isinstance(max_norm, type(None)):
+            max_norm = np.max(np.sqrt(np.sum(points**2, axis=1)))
+        norm_points = norm_points / max_norm 
+        return norm_points, center, max_norm 
+
+    def random_sample(self, points):
+        sample = np.arange(len(points))
+        np.random.shuffle(sample)
+        points_sampled = points[sample[:self.npoints]]
+        return points_sampled 
+
+    def __len__(self):
+        return len(self.list_of_points)
+
+    def __getitem__(self, idx):
+        
+
+        label = self.list_of_labels[idx][0]
+
+        pc_full = self.list_of_points[idx][:, 0:3]
+
+        if self.transform:
+            pc_full = torch.from_numpy(pc_full).float()
+            pc_full = torch.unsqueeze(pc_full, 0)
+            pc_full = self.transform(pc_full)
+            pc_full = torch.squeeze(pc_full)
+            pc_full = pc_full.detach().cpu().numpy()
+
+        pc_sampled = self.random_sample(pc_full)
+        
+        if self.normalize:    
+            pc_sampled, mean, max_norm = self.normalize_pc(pc_sampled) 
+
+        pc_sampled = torch.from_numpy(pc_sampled).float()
+
+        return label, pc_sampled, 0, 0
+        
 def get_ptcloud_img(ptcloud, roll, pitch):
     fig = plt.figure(figsize=(8, 8))
 
