@@ -16,7 +16,7 @@ from torchvision import transforms
 from timm.scheduler import CosineLRScheduler
 from sklearn.svm import LinearSVC
 
-from data_utils import ShapeNet
+from data_utils import ShapeNet, ModelNet40
 from data_utils import PointcloudScaleAndTranslate
 
 from transformer_finetune import TransformerFinetune
@@ -37,8 +37,10 @@ parser.add_argument('--commit_coef', type=float, default=0.25)
 parser.add_argument('--emb_coef', type=float, default=0.25)
 
 parser.add_argument('--prev_ckpt', type=str, default=None)
-parser.add_argument('--num_classes', type=int, required=True)
 parser.add_argument('--finetuned_model', type=str, required=None)
+
+parser.add_argument('--num_classes', type=int, default=40)
+parser.add_argument('--dataset', type=str, default='modelnet')
 
 
 parser.add_argument('--use_vq', type=bool, default=False)
@@ -64,18 +66,23 @@ train_transforms = transforms.Compose(
     ]
 )
 
-dataset = ShapeNet('train', train_transforms)
-trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+if args.dataset == 'shapenet':
+    dataset = ShapeNet('train', train_transforms)
+    trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-dataset = ShapeNet('test')
-testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataset = ShapeNet('test')
+    testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    num_classes = 55
 
-num_classes = 55
+elif args.dataset == 'modelnet':
+    dataset = ModelNet40()
+    trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-if args.use_vq:
-    model = VASP().to(device)
-else:
-    model = TransformerFinetune(num_classes).to(device)
+    dataset = ModelNet40()
+    testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    num_classes = 40
+
+model = TransformerFinetune(num_classes).to(device)
 
 if not isinstance(args.finetuned_model, type(None)):
     checkpoint = torch.load(args.finetuned_model)
@@ -92,13 +99,12 @@ if not isinstance(args.prev_ckpt, type(None)):
             v = pretrained_state_dict[k]
             model.state_dict()[k].data.copy_(v)
 
-    for name, param in model.named_parameters():
-        if name in pretrained_state_dict.keys():
-            param.requires_grad = False
+    # for name, param in model.named_parameters():
+    #     if name in pretrained_state_dict.keys():
+    #         param.requires_grad = False
     
     del checkpoint
     logprint(f'wts loaded from {args.prev_ckpt}!\n')
-
 
 optimizer = torch.optim.AdamW(model.parameters(),
                 lr = args.learning_rate, 
@@ -150,7 +156,7 @@ def run_model(dataloader, mode='train'):
 
         else:
             logits = model(pc_sampled.cuda())
-            loss = criterion(logits, tax_id.cuda())
+            loss = criterion(logits, tax_id.cuda().long())
  
             avg_cls_loss += loss.item()
 
@@ -191,7 +197,7 @@ for epoch in range(args.epochs):
         avg_cls_loss, avg_acc = run_model(trainDataloader, 'train')
         logprint(f'Train epoch:{epoch+1}/{args.epochs} cls_loss: {avg_cls_loss :.4f} acc:{avg_acc :.4f}\n')
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1 == 0:
 
             logprint('============\n')
             logprint('testing')
