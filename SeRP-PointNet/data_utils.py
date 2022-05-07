@@ -29,8 +29,8 @@ class PointcloudScaleAndTranslate(object):
 
 class ShapeNet(Dataset):
     def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data"):
-        self.dataroot = dataroot + "/ShapeNet55/ShapeNet55/"
-        self.pc_path = self.dataroot + "shapenet_pc"
+        self.dataroot = os.path.join(dataroot, "/ShapeNet55/ShapeNet55/")
+        self.pc_path = os.path.join(self.dataroot, "shapenet_pc")
 
         if mode == 'train':
             path = self.dataroot + "train_split.csv"
@@ -144,9 +144,9 @@ class ModelNet40(Dataset):
     def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data/ModelNet/"):
         dataroot = dataroot+"/ModelNet/"
         if mode == 'train':
-            self.dataroot = dataroot+"modelnet40_train_8192pts_fps.dat"
+            self.dataroot = os.path.join(dataroot,"modelnet40_train_8192pts_fps.dat")
         else:
-            self.dataroot = dataroot+"modelnet40_test_8192pts_fps.dat"
+            self.dataroot = os.path.join(dataroot,"modelnet40_test_8192pts_fps.dat")
 
         with open(self.dataroot, 'rb') as f:
             self.list_of_points, self.list_of_labels = pickle.load(f)
