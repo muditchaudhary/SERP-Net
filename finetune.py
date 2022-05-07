@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True) # Available options: vq, pointnet, transformers
     parser.add_argument('--use_wandb', action='store_true', default=False)
     parser.add_argument('--backbone_ckpt', type=str, default=None)
-    parser.add_argument('--dataroot', type=str, default="./data")
+    parser.add_argument('--dataroot', type=str, default="../data")
     parser.add_argument('--dataset', type=str, default='modelnet')
 
     args = parser.parse_args()

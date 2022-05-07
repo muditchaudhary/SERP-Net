@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--logs_dir', type=str, default='models/pretrain_logs/')
-    parser.add_argument('--dataroot', type=str, default="./data")
+    parser.add_argument('--dataroot', type=str, default="../data")
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--weight_decay', type=float, default=0.05)
     parser.add_argument('--epochs', type=int, default=300)

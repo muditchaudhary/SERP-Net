@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--model_ckpt', type=str, required=True)
     parser.add_argument('--dataset', type=str, default='modelnet')
-    parser.add_argument('--dataroot', type=str, default="./data")
+    parser.add_argument('--dataroot', type=str, default="../data")
     args = parser.parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
