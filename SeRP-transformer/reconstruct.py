@@ -17,16 +17,15 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
                     '03261776' : (0, 75), '03001627' : (30, -45)}
 
-label_ids = torch.load('/mnt/nfs/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
+label_ids = torch.load('../data/ShapeNet55/ShapeNet55/label_ids.pth')
 
 roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
 
-dataroot = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/shapenet_pc'
-all_csv = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNetCore.v2/all.csv'
+dataroot = '../data/ShapeNet55/ShapeNet55/shapenet_pc'
+all_csv = '../data/ShapeNet55/ShapeNetCore.v2/all.csv'
 df = pd.read_csv(all_csv, sep=',')
 
-# path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
-path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/train_split.csv'
+path = '../data/ShapeNet55/ShapeNet55/train_split.csv'
 pc_data = pd.read_csv(path, sep=',')
 
 npoints = 1024 
@@ -35,16 +34,12 @@ n_neighbours = 20
 
 model = Point_SERP().to(device)
 
-# path = 'models/pretrain/point_serp_2/model.pth'
-
 path = 'models/pretrain/tr_serp/model.pth'
 
 checkpoint = torch.load(path)
 model.load_state_dict(checkpoint['best_model_wts'])
 
 del checkpoint
-
-# print(pc_data.head())
 
 def write_reconstructed(epoch):
 
@@ -126,130 +121,4 @@ def write_reconstructed(epoch):
             plt.close()
         
 
-write_reconstructed(99)
-sys.exit()
-
-from sklearn.utils import shuffle
-pc_data = shuffle(pc_data)
-
-for idx, row in pc_data.iterrows():
-
-    path = f'{dataroot}/0{row["synsetId"]}-{row["modelId"]}.npy'
-
-    tax_id = f'0{row["synsetId"]}'
-    label = label_ids[tax_id]
-
-    pc_full = np.load(path).astype(np.float32)    
-    pc_sampled = random_sample(pc_full, npoints)
-    
-    pc_corrupt, y_corrupt = corrupt_pc(pc_sampled, ncenters, n_neighbours)
-
-    norm_pc_sampled, mean, max_norm = normalize_pc(pc_sampled)
-    # print('norm_pc_sampled:', norm_pc_sampled.shape)
-
-    norm_pc_corrupt, _, _ = normalize_pc(pc_corrupt, mean, max_norm)
-    # print('norm_pc_corrupt:', norm_pc_corrupt.shape)
-    
-    norm_pc_sampled = torch.from_numpy(norm_pc_sampled).float().unsqueeze(0).to(device)
-    norm_pc_corrupt = torch.from_numpy(norm_pc_corrupt).float().unsqueeze(0).to(device)
-    y_corrupt = torch.from_numpy(y_corrupt).float().unsqueeze(0).to(device)
-
-    gt_points, rebuild_points = model(norm_pc_corrupt, norm_pc_sampled, y_corrupt, reconstruct=True)
-
-    gt_points = gt_points.detach().cpu().numpy()[0]
-    rebuild_points = rebuild_points.detach().cpu().numpy()[0]
-
-    mean = mean.reshape(1, -1)
-
-    gt_points *= max_norm
-    gt_points += mean 
-
-    rebuild_points *= max_norm
-    rebuild_points += mean
-
-    sample = np.arange(len(rebuild_points))
-    np.random.shuffle(sample)
-    rebuild_points = rebuild_points[sample[:npoints]]
-
-    if tax_id in roll_pitch.keys():
-        r, l = roll_pitch[tax_id]
-    else:
-        r,l = 0, 0    
-
-    i1= get_ptcloud_img(pc_full, r, l)
-    i2 = get_ptcloud_img(pc_sampled, r, l)
-    i3 = get_ptcloud_img(pc_corrupt, r, l)
-    i4 = get_ptcloud_img(rebuild_points, r, l)
-    f, axarr = plt.subplots(1,4, figsize=(30, 8))
-    axarr[0].imshow(i1)
-    axarr[0].axis('off')
-    axarr[0].title.set_text('full')
-
-    axarr[1].imshow(i2)
-    axarr[1].axis('off')
-    axarr[1].title.set_text('sampled')
-    
-    axarr[2].imshow(i3)
-    axarr[2].axis('off')
-    axarr[2].title.set_text('corrupted')
-    
-    axarr[3].imshow(i4)
-    axarr[3].axis('off')
-    axarr[3].title.set_text('reconstructed')
-
-    plt.axis('off')
-    plt.savefig(f'images/new_plots/c20_n20_3e-2/{idx+1}_{tax_id}.png')
-
-    print(idx)
-
-    if idx == 50:
-        break
-    
-    # break
-
-def vis_pc():
-
-    roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
-                    '03261776' : (0, 75), '03001627' : (30, -45)}
-
-    dataset = ShapeNet('val', False, True)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-
-    for idx, (tax_id, pc_full, pc_sampled, pc_corrupt, y_corrupt) in enumerate(dataloader):
-        
-        tax_id = tax_id[0]
-        pc = pc_full[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r,l = 0, 0    
-        
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_full.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))    
-
-        pc = pc_sampled[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r,l = 0, 0    
-        
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_sampled.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))    
-
-        pc = pc_corrupt[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r,l = 0, 0    
-        
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_corrupt.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))    
-        
-        if idx==10:
-            break
+write_reconstructed(300)
