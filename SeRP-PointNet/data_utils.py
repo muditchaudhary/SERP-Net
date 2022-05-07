@@ -33,13 +33,13 @@ class ShapeNet(Dataset):
         self.pc_path = os.path.join(self.dataroot, "shapenet_pc")
 
         if mode == 'train':
-            path = self.dataroot + "train_split.csv"
+            path = os.path.join(self.dataroot, "train_split.csv")
             self.pc_data = pd.read_csv(path, sep=',')
         else:
-            path = self.dataroot + "val_split.csv"
+            path = os.path.join(self.dataroot, "val_split.csv")
             self.pc_data = pd.read_csv(path, sep=',')
 
-        self.label_ids = torch.load(self.dataroot + "label_ids.pth")
+        self.label_ids = torch.load(os.path.join(self.dataroot,"label_ids.pth"))
         self.return_full = return_full
         self.normalize = normalize
         self.npoints = 1024
@@ -141,8 +141,8 @@ class ShapeNet(Dataset):
 
 
 class ModelNet40(Dataset):
-    def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data/ModelNet/"):
-        dataroot = dataroot+"/ModelNet/"
+    def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data"):
+        dataroot = os.path.joing(dataroot,"/ModelNet/")
         if mode == 'train':
             self.dataroot = os.path.join(dataroot,"modelnet40_train_8192pts_fps.dat")
         else:
@@ -215,53 +215,3 @@ def get_ptcloud_img(ptcloud, roll, pitch):
 
     plt.close()
     return img
-
-
-def vis_pc():
-    roll_pitch = {"02691156": (90, 135), '04379243': (30, 30), '03642806': (30, -45), '03467517': (0, 90),
-                  '03261776': (0, 75), '03001627': (30, -45)}
-
-    label_ids = torch.load('/gypsum/work1/huiguan/siddhantgarg/multitask_pruning/project/serp/label_ids.pth')
-    roll_pitch = {label_ids[key]: v for key, v in roll_pitch.items()}
-
-    dataset = ShapeNet('train', False, True, return_full=True)
-    trainDataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-
-    for idx, (tax_id, pc_full, pc_sampled, pc_corrupt, y_corrupt) in enumerate(trainDataloader):
-
-        tax_id = tax_id[0]
-        pc = pc_full[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r, l = 0, 0
-
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_full.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-        pc = pc_sampled[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r, l = 0, 0
-
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_sampled.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-        pc = pc_corrupt[0].detach().cpu().numpy()
-
-        if tax_id in roll_pitch.keys():
-            r, l = roll_pitch[tax_id]
-        else:
-            r, l = 0, 0
-
-        img = get_ptcloud_img(pc, r, l)
-        path = f'images/{tax_id}_corrupt.png'
-        cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-        if idx == 10:
-            break
