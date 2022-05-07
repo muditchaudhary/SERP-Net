@@ -160,11 +160,12 @@ class PointNetCls(nn.Module):
 
 class SerpPointNet(nn.Module):
     def __init__(self, output_feat_dim=128, feature_transform=False, rec_loss="mse", learn_delta=False,
-                 weight_lambda=0.75):
+                 weight_lambda=0.75, learn_diff = False, finetuning = False):
         super(SerpPointNet, self).__init__()
 
+        self.finetuning = finetuning
         self.learn_delta = learn_delta
-
+        self.learn_diff = learn_diff
         self.output_feat_dim = output_feat_dim
         self.feature_transform = feature_transform
         self.feat = PointNetfeat(global_feat=False, feature_transform=feature_transform)
@@ -211,7 +212,10 @@ class SerpPointNet(nn.Module):
         return torch.mean(weights * torch.sum((pred - target),dim=2).reshape(-1))
 
     def reconstruction_loss(self, reconstructed_pts, gt_points):
-        rec_loss = self.rec_loss_func(gt_points, reconstructed_pts)
+        if self.rec_loss in ["cdl1", "cdl2"]:
+            rec_loss = self.rec_loss_func(gt_points, reconstructed_pts)
+        else:
+            rec_loss = self.rec_loss_func(reconstructed_pts, gt_points)
         return rec_loss
 
     def forward(self, x, rec_labels=None, cls_labels=None, reconstruct=False):
@@ -219,6 +223,10 @@ class SerpPointNet(nn.Module):
         batchsize = x.size()[0]
         n_pts = x.size()[2]
         feats, trans, trans_feat, global_feature = self.feat(x)
+
+        if self.finetuning:
+            return global_feature
+
         feats = F.relu(self.bn1(self.conv1(feats)))
         feats = F.relu(self.bn2(self.conv2(feats)))
         feats = F.relu(self.bn3(self.conv3(feats)))
@@ -232,28 +240,42 @@ class SerpPointNet(nn.Module):
             cls_loss = self.cls_loss(cls_logits, cls_labels)
             rec_points = self.reconstruction_head(per_point_feature)
             rec_points = rec_points.transpose(2, 1)
-            cls_logits_f_loss = cls_logits.argmax()
 
             if self.learn_delta:
-                # gt_delta = rec_labels - x.transpose(2, 1)
-                # pred_delta = rec_points
-                # rec_points = rec_points + x.transpose(2,1)
 
+                #gt_delta = rec_labels - x.transpose(2, 1)
+                #pred_delta = rec_points
+                rec_points = rec_points + x.transpose(2,1)
                 #(Batchsize, point_cloud_idx, x,y,z)
-                if self.rec_loss in ["mse", "l1", "smoothL1"]:
-                    rec_loss = self.rec_loss_func(pred_delta, gt_delta)
+
+                if self.rec_loss in ["mse", "l1", "smoothL1", "cdl1", "cdl2"]:
+                    rec_loss = self.reconstruction_loss(rec_points, rec_labels)
                 elif self.rec_loss == "weightedL2":
-                    rec_loss = self.weightedL2Loss(pred_delta, gt_delta, cls_logits_f_loss)
+                    rec_loss = self.weightedL2Loss(pred_delta, gt_delta, cls_labels)
                 else:
                     raise NotImplementedError
+            elif self.learn_diff:
+                gt_delta = rec_labels - x.transpose(2, 1)
+                pred_delta = rec_points
+                #rec_points = rec_points + x.transpose(2, 1)
+                # (Batchsize, point_cloud_idx, x,y,z)
+
+                if self.rec_loss in ["mse", "l1", "smoothL1", "cdl1", "cdl2"]:
+                    rec_loss = self.reconstruction_loss(pred_delta, gt_delta)
+                elif self.rec_loss == "weightedL2":
+                    rec_loss = self.weightedL2Loss(pred_delta, gt_delta, cls_labels)
+                else:
+                    raise NotImplementedError
+
             else:
-                rec_loss = self.rec_loss_func(rec_points, rec_labels)
+
+                rec_loss = self.reconstruction_loss(rec_points, rec_labels)
 
             return rec_loss, cls_loss
 
         elif reconstruct:
             rec_points = self.reconstruction_head(per_point_feature)
-            if self.learn_delta:
+            if self.learn_delta or self.learn_diff:
                 pred_delta = rec_points.transpose(2, 1)
                 rec_points = pred_delta + x.transpose(2, 1)
             else:
@@ -263,6 +285,18 @@ class SerpPointNet(nn.Module):
         else:
             return global_feature, per_point_feature
 
+class SerpPointNetClassifier(nn.Module):
+    def __init__(self, backbone, num_label, global_feature_dim = 1024):
+        super(SerpPointNetClassifier, self).__init__()
+        self.backbone = backbone
+        self.num_label = num_label
+        self.cls_head = torch.nn.Linear(global_feature_dim, self.num_label)
+
+    def forward(self, x):
+        out = self.backbone(x)
+        out = self.cls_head(out)
+
+        return out
 
 class PointNetDenseCls(nn.Module):
     def __init__(self, k=2, feature_transform=False):

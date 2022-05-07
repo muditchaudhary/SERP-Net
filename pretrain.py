@@ -64,7 +64,7 @@ def train_model(model, optimizer, dataloader, args):
 
         elif args.model == "transformers" or args.model == "pointnet":
             rec_loss, classifier_loss = model(pc_corrupt.cuda(), pc_sampled.cuda(), y_corrupt.cuda())
-            loss = rec_loss + args.classifier_coeff * classifier_loss
+            loss = args.rec_coeff * rec_loss + args.classifier_coeff * classifier_loss
 
             avg_rec_loss += rec_loss.item()
             avg_cls_loss += classifier_loss.item()
@@ -169,13 +169,15 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--initial_epochs', type=int, default=10)
     parser.add_argument('--step_per_update', type=int, default=1)
-    parser.add_argument('--classifier_coeff', type=float, default=0.25)
+    parser.add_argument('--classifier_coeff', type=float, default=0.001)
+    parser.add_argument('--rec_coeff', type=float, default=1.5)
     parser.add_argument('--commit_coef', type=float, default=0.25)
     parser.add_argument('--emb_coef', type=float, default=0.25)
     parser.add_argument('--model', type=str, required=True) # Available options: vq, pointnet, transformers
     parser.add_argument('--use_wandb', action='store_true', default=False)
     parser.add_argument('--rec_loss', type=str, default="cdl2")
     parser.add_argument('--learn_delta', action='store_true', default=False)
+    parser.add_argument('--learn_diff', action='store_true', default=False)
     parser.add_argument('--output_feat_dim', type=int, default=128) # For Pointnet
     parser.add_argument('--log_rec_images', action='store_true', default=False)
 
@@ -241,7 +243,7 @@ if __name__ == "__main__":
     elif args.model == "pointnet":
         from models.pointnet import SerpPointNet as SERP_Point_PointNet
 
-        model = SERP_Point_PointNet(output_feat_dim = args.output_feat_dim, rec_loss=args.rec_loss, learn_delta=args.learn_delta).to(device)
+        model = SERP_Point_PointNet(output_feat_dim = args.output_feat_dim, rec_loss=args.rec_loss, learn_delta=args.learn_delta, learn_diff = args.learn_diff).to(device)
         if args.use_wandb:
             wandb.watch(model)
         val_model = None
