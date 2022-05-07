@@ -11,7 +11,6 @@ import wandb
 from tqdm import tqdm
 from sklearn.svm import LinearSVC
 from time import time
-from utils import write_reconstructed
 
 def logprint(log):
     #print(log, end='')
@@ -162,7 +161,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--logs_dir', type=str, default='models/pretrain_logs/')
-    parser.add_argument('--dataroot', type=str, default="./data/ShapeNet55/ShapeNet55/")
+    parser.add_argument('--dataroot', type=str, default="./data")
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--weight_decay', type=float, default=0.05)
     parser.add_argument('--epochs', type=int, default=300)
@@ -301,6 +300,5 @@ if __name__ == "__main__":
             torch.save(ckpt, path)
 
 
-        if args.log_rec_images and epoch%1==0:
+        if epoch%1==0:
             img_folder = os.path.join(saved_model_path,str(epoch))
-            write_reconstructed(model, epoch, 1, img_folder, args.use_wandb)

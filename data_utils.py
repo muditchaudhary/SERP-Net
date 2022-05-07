@@ -9,39 +9,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import pickle
 
 
-def process_data():
-    label_ids = {}
-    num_classes = 0
-
-    dataroot = '/gypsum/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/shapenet_pc'
-    all_csv = '/gypsum/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNetCore.v2/all.csv'
-    df = pd.read_csv(all_csv, sep=',')
-    for index, row in df.iterrows():
-        path = f'{dataroot}/0{row["synsetId"]}-{row["modelId"]}.npy'
-        # if not os.path.exists(path):
-        #     print(f'{path}')
-        #     df.drop(index, inplace=True)
-
-        lab = f'0{row["synsetId"]}'
-        if lab not in label_ids.keys():
-            label_ids[lab] = num_classes
-            num_classes += 1
-    print('num_classes:', num_classes)
-
-    torch.save(label_ids, 'label_ids.pth')
-
-    # train_split = df[df['split']=='train']
-    # val_split = df[df['split']=='val']
-
-    # path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/train_split.csv'
-    # train_split.to_csv(path, index=False, sep=',')
-
-    # path = '/mnt/nfs/work1/huiguan/siddhantgarg/datasets/ShapeNet55/ShapeNet55/val_split.csv'
-    # val_split.to_csv(path, index=False, sep=',')
-
-
-# process_data()
-
 class PointcloudScaleAndTranslate(object):
     def __init__(self, scale_low=2. / 3., scale_high=3. / 2., translate_range=0.2):
         self.scale_low = scale_low
@@ -61,9 +28,8 @@ class PointcloudScaleAndTranslate(object):
 
 
 class ShapeNet(Dataset):
-    def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data/ShapeNet55/ShapeNet55/"):
-
-        self.dataroot = dataroot
+    def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data"):
+        self.dataroot = dataroot + "/ShapeNet55/ShapeNet55/"
         self.pc_path = self.dataroot + "shapenet_pc"
 
         if mode == 'train':
@@ -114,8 +80,6 @@ class ShapeNet(Dataset):
         dist = np.sum(dist, axis=-1)
 
         neigh_idx = np.argsort(dist, axis=-1)[:,:self.n_neighbours]
-        # neigh_idx = np.reshape(neigh_idx, -1)
-        # neigh_idx = np.unique(neigh_idx)
 
         return neigh_idx
 
@@ -171,18 +135,18 @@ class ShapeNet(Dataset):
 
         if self.return_full:
             pc_full = torch.from_numpy(pc_full).float()
-            return label, pc_full, pc_sampled, pc_corrupt, y_corrupt #pc_sampled_unnormalized, pc_corrupt_unnormalized
+            return label, pc_full, pc_sampled, pc_corrupt, y_corrupt
         else:
             return label, pc_sampled, pc_corrupt, y_corrupt
 
 
 class ModelNet40(Dataset):
-    def __init__(self, mode='train', transform=None, normalize=True, return_full=False):
-
+    def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data/ModelNet/"):
+        dataroot = dataroot+"/ModelNet/"
         if mode == 'train':
-            self.dataroot = './data/ModelNet/modelnet40_train_8192pts_fps.dat'
+            self.dataroot = dataroot+"modelnet40_train_8192pts_fps.dat"
         else:
-            self.dataroot = './data/ModelNet/modelnet40_test_8192pts_fps.dat'
+            self.dataroot = dataroot+"modelnet40_test_8192pts_fps.dat"
 
         with open(self.dataroot, 'rb') as f:
             self.list_of_points, self.list_of_labels = pickle.load(f)
@@ -235,11 +199,9 @@ def get_ptcloud_img(ptcloud, roll, pitch):
     fig = plt.figure(figsize=(8, 8))
 
     x, z, y = ptcloud.transpose(1, 0)
-    # ax = fig.gca(projection=Axes3D.name, adjustable='box')
     ax = fig.add_subplot(projection='3d')
 
     ax.axis('off')
-    # ax.axis('scaled')
     ax.view_init(roll, pitch)
     max, min = np.max(ptcloud), np.min(ptcloud)
     ax.set_xbound(min, max)

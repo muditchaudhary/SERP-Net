@@ -59,8 +59,6 @@ def run_model(model, dataloader, optimizer=None, criterion=None, mode='train', u
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('--dataroot', type=str, default="./data/ShapeNet55/ShapeNet55/")
     parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--weight_decay', type=float, default=0.05)
     parser.add_argument('--epochs', type=int, default=30)
@@ -68,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True) # Available options: vq, pointnet, transformers
     parser.add_argument('--use_wandb', action='store_true', default=False)
     parser.add_argument('--backbone_ckpt', type=str, default=None)
+    parser.add_argument('--dataroot', type=str, default="./data")
     parser.add_argument('--dataset', type=str, default='modelnet')
 
     args = parser.parse_args()
@@ -92,18 +91,18 @@ if __name__ == "__main__":
     )
 
     if args.dataset == 'shapenet':
-        dataset = ShapeNet('train', train_transforms)
+        dataset = ShapeNet('train', train_transforms, dataroot=args.dataroot)
         trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-        dataset = ShapeNet('test')
+        dataset = ShapeNet('test', dataroot=args.dataroot)
         testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
         num_classes = 55
 
     elif args.dataset == 'modelnet':
-        dataset = ModelNet40('train')
+        dataset = ModelNet40('train', dataroot=args.dataroot)
         trainDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-        dataset = ModelNet40('test')
+        dataset = ModelNet40('test', dataroot=args.dataroot)
         testDataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
         num_classes = 40
 
