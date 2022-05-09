@@ -39,6 +39,9 @@ SERP-Net
 |-- extensions/
 ```
 
+## How to run  
+Instructions on how to run `SeRP-PointNet` and `SeRP-transformer` are provided in the `README.md` in the respective directories.
+
 ## Source code citations
 Some parts of `SeRP-PointNet/pointnet.py` were sourced from https://github.com/fxia22/pointnet.pytorch
 
