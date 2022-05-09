@@ -1,0 +1,1 @@
+2/279 rec_loss: 0.087327 cls_loss: 0.693853 3/279 rec_loss: 0.066812 cls_loss: 0.692246 2/279 rec_loss: 0.247881 cls_loss: 0.723453 

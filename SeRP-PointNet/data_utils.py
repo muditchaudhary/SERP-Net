@@ -29,7 +29,7 @@ class PointcloudScaleAndTranslate(object):
 
 class ShapeNet(Dataset):
     def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data"):
-        self.dataroot = os.path.join(dataroot, "/ShapeNet55/ShapeNet55/")
+        self.dataroot = os.path.join(dataroot, "ShapeNet55/ShapeNet55/")
         self.pc_path = os.path.join(self.dataroot, "shapenet_pc")
 
         if mode == 'train':
@@ -142,7 +142,7 @@ class ShapeNet(Dataset):
 
 class ModelNet40(Dataset):
     def __init__(self, mode='train', transform=None, normalize=True, return_full=False, dataroot="./data"):
-        dataroot = os.path.joing(dataroot,"/ModelNet/")
+        dataroot = os.path.join(dataroot,"ModelNet/")
         if mode == 'train':
             self.dataroot = os.path.join(dataroot,"modelnet40_train_8192pts_fps.dat")
         else:
