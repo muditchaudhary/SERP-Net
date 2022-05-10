@@ -19,7 +19,9 @@ SeRP-PointNet Saved Models: https://drive.google.com/file/d/1bn8XhYt4e6UCklfsQv-
 
 SeRP-Transformer Saved Models: https://drive.google.com/file/d/12LJmrf5AyBxlqZWx6Bn4UtXWUIJ66rPL/view?usp=sharing
 
-## The final file structure should be:
+## File Structure  
+Extract the data folder after downloading from the link above. The final folder structure should be the following:
+
 ```
 |  
 |-- data/
