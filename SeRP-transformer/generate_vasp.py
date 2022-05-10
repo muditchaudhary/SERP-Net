@@ -1,3 +1,5 @@
+import sys 
+sys.path.append('../')
 from torch.utils import data
 import pandas as pd
 import os, argparse, random, sys
@@ -17,13 +19,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
                     '03261776' : (0, 75), '03001627' : (30, -45)}
 
-label_ids = torch.load('label_ids.pth')
+label_ids = torch.load('../data/ShapeNet55/ShapeNet55/label_ids.pth')
 
 roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
 
 dataroot = '../data/ShapeNet55/ShapeNet55/shapenet_pc'
-all_csv = '../data/ShapeNet55/ShapeNetCore.v2/all.csv'
-df = pd.read_csv(all_csv, sep=',')
 
 path = '../data/ShapeNet55/ShapeNet55/train_split.csv'
 pc_data = pd.read_csv(path, sep=',')
@@ -34,7 +34,7 @@ n_neighbours = 20
 
 model = VASP().to(device)
 
-path = 'models/pretrain/tr_vasp/model.pth'
+path = 'models/pre-trained/tr_vasp/model.pth'
 
 checkpoint = torch.load(path)
 model.load_state_dict(checkpoint['best_model_wts'])
