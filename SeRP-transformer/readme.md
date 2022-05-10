@@ -161,6 +161,8 @@ Implemented by Siddhant Garg (full script)
   |--plot_tsne.py
   |--reconstruct.py
   |--utils.py
+  |--pretrain.py
+  |--finetune.py
 
 Implemented by Siddhant Garg (partial scripts)
   |--serp_transformer.py (Implemented class Point_SERP from lines 256-396)
