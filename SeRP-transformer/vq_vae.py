@@ -278,12 +278,12 @@ class VASP(nn.Module):
         
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = VASP()
-s = ''
-for k in model.state_dict().keys():
-    s += f'{k}\n'
-with open('vasp.txt', 'w') as f:
-    f.write(s)
+# model = VASP()
+# s = ''
+# for k in model.state_dict().keys():
+#     s += f'{k}\n'
+# with open('vasp.txt', 'w') as f:
+#     f.write(s)
 # dataset = ShapeNet('train')
 # trainDataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 
