@@ -168,8 +168,8 @@ Implemented by Siddhant Garg (partial scripts)
 ```
 # Acknowledgements
 
-```
 Transformer model was adapted from [Point-MAE](https://github.com/Pang-Yatian/Point-MAE)
+
 Vector-Quantization operations and gradient operations were adapted from [VQ-VAE](https://github.com/jaywalnut310/Vector-Quantized-Autoencoders)
+
 Processed datasets for ShapeNet55 and ModelNet40 are taken from [Point-BERT](https://github.com/lulutang0608/Point-BERT/tree/49e2c7407d351ce8fe65764bbddd5d9c0e0a4c52)
-```
