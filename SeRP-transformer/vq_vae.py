@@ -10,12 +10,13 @@ from collections import abc
 from pointnet2_ops import pointnet2_utils
 from knn_cuda import KNN
 from timm.models.layers import DropPath, trunc_normal_
-from Point_MAE.extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
+from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Function, Variable
 
 from data_utils import ShapeNet
-from models import *
+from serp_transformer import *
+
 
 class NearestEmbedFunc(Function):
     """
