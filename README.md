@@ -1,7 +1,5 @@
 # SERP-Net
 
-
-
 ## Setup
 ```
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch  
@@ -23,18 +21,51 @@ SeRP-Transformer Saved Models: https://drive.google.com/file/d/12LJmrf5AyBxlqZWx
 
 ## The final file structure should be:
 ```
-SERP-Net  
 |  
 |-- data/
+|         |--ModelNet/
+|         |     |--modelnet40_train_8192pts_fps.dat
+|         |     |--modelnet40_test_8192pts_fps.dat
+|         |  
+|         |--ShapeNet55/
+|         |     |--ShapeNet55/
+|         |     |       |--label_ids.pth
+|         |     |       |--train_split.csv
+|         |     |       |--val_split.csv
+|         |     |       |--shapenet_pc/
+|         |     |       |       |--pc_1.npy
+|         |     |       |       |--pc_2.npy
+|         |     |       |       |--.....npy
+|         |     |       |       |--.....npy
+|         |     |       |       |--pc_N.npy
+|         |         
 |
 |-- SeRP-PointNet/
 |         |
 |         |--saved_models/
 |         | ... <remaining files>
 |
-|-- SeRP-transformers
-|         |--saved_models/
-|         | ... <remaining files>
+|-- SeRP-transformer
+|         |--models/
+|         |     |--pre-trained/  # pre-trained models on ShapeNet-55
+|         |     |   |--tr_serp/     # pre-trained SeRP-Transformer
+|         |     |   |--tr_vasp/     # pre-trained VASP-Transformer
+|         |     |   
+|         |     |--fine-tuned/  # fine-tuned models on classification tasks
+|         |     |   |--m40_no_pretrain/  # encoder trained from scratch on ModelNet40 dataset
+|         |     |   |--m40_tr_serp/  # Pre-trained SeRP encoder on ModelNet40 dataset
+|         |     |   |--m40_tr_serp/  # Pre-trained VASP encoder on ModelNet40 dataset
+|         |     |   |--sh_tr_nopretrain/  # encoder trained from scratch on ShapeNet classification dataset
+|         |     |   |--sh_tr_serp/  # Pre-trained SeRP encoder on ShapeNet55 dataset
+|         |     |   |--sh_tr_vasp/  # Pre-trained VASP encoder on ShapeNet55 dataset
+|         |     |   
+|         |     |--pretrain/  # by default to store pretrained models while pre-training
+|         |     |   --model.pth  # this will be written here
+|         |     |   --logs.txt  # this will be written here
+|         |     |   
+|         |     |--finetune/  # by default to store classification models while finetuning
+|         |     |   --model.pth  # this will be written here
+|         |     |   --logs.txt  # this will be written here
 |
 |-- extensions/
 ```
@@ -53,4 +84,23 @@ SeRP-PoinNet/models/pointnet.py
 SeRP-PointNet/eval.py  
 SeRP-PointNet/finetune.py <with Siddhant Garg>
 SeRP-PointNet/pretrain.py <with Siddhant Garg>
+```  
+Siddhant Garg:
+```
+Implemented by Siddhant Garg (full script)
+  |--SeRP-transformer/data_utils.py
+  |--SeRP-transformer/evaluate_classification.py
+  |--SeRP-transformer/finetune.py
+  |--SeRP-transformer/generate_vasp.py
+  |--SeRP-transformer/plot_tsne.py
+  |--SeRP-transformer/reconstruct.py
+  |--SeRP-transformer/utils.py
+
+Implemented by Siddhant Garg (partial scripts)
+  |--SeRP-transformer/serp_transformer.py (Implemented class Point_SERP from lines 256-396)
+  |--SeRP-transformer/vq_vae.py (Implemented the class VASP from lines 117-277)
+ 
+Implemented jointly with Mudit Chaudhary
+  |--SeRP-transformer/pretrain.py 
+  |--SeRP-transformer/finetune.py
 ```
