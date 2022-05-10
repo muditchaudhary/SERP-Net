@@ -167,8 +167,8 @@ Implemented by Siddhant Garg (partial scripts)
   |--SeRP-transformer/vq_vae.py (Implemented the class VASP from lines 117-277)
  
 Implemented jointly with Mudit Chaudhary
-  |--SeRP-transformer/pretrain.py 
-  |--SeRP-transformer/finetune.py
+  |--SeRP-PointNet/pretrain.py 
+  |--SeRP-PointNet/finetune.py
 ```
 # Acknowledgements
 
