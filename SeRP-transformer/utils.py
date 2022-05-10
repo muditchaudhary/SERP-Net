@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from data_utils import ShapeNet
 from data_utils import PointcloudScaleAndTranslate
-from models import Point_SERP
+from serp_transformer import Point_SERP
 from vq_vae import VASP 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -17,7 +17,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
                     '03261776' : (0, 75), '03001627' : (30, -45)}
 
-label_ids = torch.load('label_ids.pth')
+label_ids = torch.load('../data/ShapeNet55/ShapeNet55/label_ids.pth')
 
 roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
 
