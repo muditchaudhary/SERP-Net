@@ -34,7 +34,7 @@ SERP-Net
 |         |--saved_models/
 |         | ... <remaining files>
 |
-|-- SeRP-transformers
+|-- SeRP-transformer
 |         |--models/
 |         |     |--pre-trained/  # pre-trained models on ShapeNet-55
 |         |     |   |--tr_serp/     # pre-trained SeRP-Transformer
@@ -154,19 +154,21 @@ python evaluate_classification.py \
 
 ```
 Implemented by Siddhant Garg (full script)
-  |--data_utils.py
-  |--evaluate_classification.py
-  |--finetune.py
-  |--generate_vasp.py
-  |--plot_tsne.py
-  |--reconstruct.py
-  |--utils.py
-  |--pretrain.py
-  |--finetune.py
+  |--SeRP-transformer/data_utils.py
+  |--SeRP-transformer/evaluate_classification.py
+  |--SeRP-transformer/finetune.py
+  |--SeRP-transformer/generate_vasp.py
+  |--SeRP-transformer/plot_tsne.py
+  |--SeRP-transformer/reconstruct.py
+  |--SeRP-transformer/utils.py
 
 Implemented by Siddhant Garg (partial scripts)
-  |--serp_transformer.py (Implemented class Point_SERP from lines 256-396)
-  |--vq_vae.py (Implemented the class VASP from lines 117-277)
+  |--SeRP-transformer/serp_transformer.py (Implemented class Point_SERP from lines 256-396)
+  |--SeRP-transformer/vq_vae.py (Implemented the class VASP from lines 117-277)
+ 
+Implemented jointly with Mudit Chaudhary
+  |--SeRP-transformer/pretrain.py 
+  |--SeRP-transformer/finetune.py
 ```
 # Acknowledgements
 
