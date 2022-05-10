@@ -149,3 +149,27 @@ python evaluate_classification.py \
 python evaluate_classification.py \
 --finetuned_model=models/fine-tuned/sh_tr_vasp/model.pth
 ```
+
+# Contributions 
+
+```
+Implemented by Siddhant Garg (full script)
+  |--data_utils.py
+  |--evaluate_classification.py
+  |--finetune.py
+  |--generate_vasp.py
+  |--plot_tsne.py
+  |--reconstruct.py
+  |--utils.py
+
+Implemented by Siddhant Garg (partial scripts)
+  |--serp_transformer.py (Implemented class Point_SERP from lines 256-396)
+  |--vq_vae.py (Implemented the class VASP from lines 117-277)
+```
+# Acknowledgements
+
+```
+Transformer model was adapted from [Point-MAE](https://github.com/Pang-Yatian/Point-MAE)
+Vector-Quantization operations and gradient operations were adapted from [VQ-VAE](https://github.com/jaywalnut310/Vector-Quantized-Autoencoders)
+Processed datasets for ShapeNet55 and ModelNet40 are taken from [Point-BERT](https://github.com/lulutang0608/Point-BERT/tree/49e2c7407d351ce8fe65764bbddd5d9c0e0a4c52)
+```
