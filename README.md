@@ -23,7 +23,8 @@ Link to presentation video: https://drive.google.com/file/d/1G_3EZLqnKXF9Gj7t_dZ
 
 Link to the whole code + presentation video + presentation + report .zip: https://drive.google.com/drive/folders/1ZY8IguYaUMsaQsc-VFTUmPVl2B49OBCv?usp=sharing
 
-## The final file structure should be:
+## Project Structure:  
+Extract the data folder after downloading from the link above. The final folder structure should be the following:
 ```
 |  
 |-- data/
