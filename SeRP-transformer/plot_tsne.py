@@ -1,3 +1,5 @@
+import sys 
+sys.path.append('../')
 from torch.utils import data
 import pandas as pd
 import os, argparse, random, sys
@@ -20,13 +22,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 roll_pitch = {"02691156" : (90, 135), '04379243' : (30, 30), '03642806' : (30, -45), '03467517' : (0, 90), 
                     '03261776' : (0, 75), '03001627' : (30, -45)}
 
-label_ids = torch.load('label_ids.pth')
+label_ids = torch.load('../data/ShapeNet55/ShapeNet55/label_ids.pth')
 
 roll_pitch = {label_ids[key] : v for key, v in roll_pitch.items()}
 
 dataroot = '../data/ShapeNet55/ShapeNet55/shapenet_pc'
-all_csv = '../data/ShapeNet55/ShapeNetCore.v2/all.csv'
-df = pd.read_csv(all_csv, sep=',')
 
 path = '../data/ShapeNet55/ShapeNet55/train_split.csv'
 pc_data = pd.read_csv(path, sep=',')
@@ -40,12 +40,12 @@ model_name = 'vasp'
 
 if model_name == 'serp':
     model = Point_SERP().to(device)
-    path = 'models/pretrain/tr_serp/model.pth'
+    path = 'models/pre-trained/tr_serp/model.pth'
     img_folder = f'images/reconstructed/tr_serp/tsne'
 
 elif model_name == 'vasp':
     model = VASP().to(device)
-    path = 'models/pretrain/tr_vasp/model.pth'
+    path = 'models/pre-trained/tr_vasp/model.pth'
     img_folder = f'images/reconstructed/tr_vasp/tsne_zq'
 
 os.makedirs(img_folder, exist_ok=True)
