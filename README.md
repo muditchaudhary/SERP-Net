@@ -19,6 +19,10 @@ SeRP-PointNet Saved Models: https://drive.google.com/file/d/1bn8XhYt4e6UCklfsQv-
 
 SeRP-Transformer Saved Models: https://drive.google.com/file/d/12LJmrf5AyBxlqZWx6Bn4UtXWUIJ66rPL/view?usp=sharing
 
+Link to presentation video: https://drive.google.com/file/d/1G_3EZLqnKXF9Gj7t_dZB_64rqGyBicUM/view?usp=sharing
+
+Link to the whole code + presentation video + presentation + report .zip: https://drive.google.com/drive/folders/1ZY8IguYaUMsaQsc-VFTUmPVl2B49OBCv?usp=sharing
+
 ## The final file structure should be:
 ```
 |  
