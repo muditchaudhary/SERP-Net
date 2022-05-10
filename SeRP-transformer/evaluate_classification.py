@@ -1,3 +1,5 @@
+import sys
+sys.path.append("../")
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -23,7 +25,7 @@ from transformer_finetune import TransformerFinetune
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--logs_dir', type=str, required=True)
+parser.add_argument('--logs_dir', type=str, default='evaluation')
 
 parser.add_argument('--learning_rate', type=float, default=0.001)
 parser.add_argument('--weight_decay', type=float, default=0.05)
@@ -157,38 +159,12 @@ def run_model(dataloader, mode='train'):
     avg_cls_loss /= n_batches
     avg_acc /= (n_batches * args.batch_size)
 
-    if args.use_vq:
-        return avg_rec_loss, avg_cls_loss, avg_vq_loss, avg_commit_loss
-    else:
-        return avg_cls_loss, avg_acc
+    return avg_cls_loss, avg_acc
 
 
-for epoch in range(args.epochs):
-    
-    avg_cls_loss, avg_acc = run_model(trainDataloader, 'train')
-    logprint(f'Train epoch:{epoch+1}/{args.epochs} cls_loss: {avg_cls_loss :.4f} acc:{avg_acc :.4f}\n')
+logprint('============\n')
+logprint('testing')
+logprint('============\n')
 
-    if (epoch + 1) % 1 == 0:
-
-        logprint('============\n')
-        logprint('testing')
-        logprint('============\n')
-
-        avg_cls_loss, avg_acc = run_model(testDataloader, 'test')
-        logprint(f'Test epoch:{epoch+1}/{args.epochs} cls_loss: {avg_cls_loss :.4f} acc:{avg_acc :.4f}\n')
-
-        
-        if max_acc < avg_acc:
-
-            max_acc = avg_acc
-
-            ckpt = {
-                'best_model_wts' : model.state_dict(),
-                'max_acc' : max_acc
-            }
-
-            path = os.path.join(args.logs_dir, 'model.pth')
-            torch.save(ckpt, path)
-            logprint(f'model saved with best test acc: {max_acc}\n')
-
-    scheduler.step()
+avg_cls_loss, avg_acc = run_model(testDataloader, 'test')
+logprint(f'cls_loss: {avg_cls_loss :.4f} acc:{avg_acc :.4f}\n')
