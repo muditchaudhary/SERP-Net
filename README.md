@@ -1,4 +1,4 @@
-# SERP-Net
+# SeRP: Self-Supervised Representation Learning Using Perturbed Point Clouds
 
 ## Setup
 ```
