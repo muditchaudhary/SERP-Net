@@ -1,5 +1,7 @@
 # SeRP: Self-Supervised Representation Learning Using Perturbed Point Clouds
 
+Read paper here: https://arxiv.org/abs/2209.06067
+
 ## Setup
 ```
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch  
